@@ -2,123 +2,68 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-import subprocess
-import asyncio
+from subprocess import Popen, PIPE, CalledProcessError
 import send
 import re
 
-
-def is_downloading(process):
-    '''
-    return True if download is still in progress else return False
-    '''
-    return_code = process.poll()
-    if return_code is not None:
-        return False
-    return True
-
-def get_progress(output):
-    
-    #find the last occurence of the line we want
-    index = -1
-    c = 0
-    for line in output:
-        if re.search("\[download\] Downloading video", line):
-            index = c
-        c +=1
-
-    if index == -1:
-        return "Progress : :red_square:"
-    
-    #isolate the line to lex it
-    line = output[index]
-
-    #extact the numeric values of the line 
-    L = [int(s) for s in re.findall(r'\b\d+\b', line.strip())] 
-
-    #generate the bar using the values extected
-    bar = ""
-    for i in range(L[0]):
-            bar += ":green_square:"
+def get_progress(line,live_logs):
+    if re.search("\[download\] Downloading video",line):
+        L = [int(s) for s in re.findall(r'\b\d+\b', line)]
             
-    for i in range(L[0],L[1]):
-        bar += ":red_square:"
+        bar = ""
+        for i in range(L[0]):
+            bar += ":green_square:"
+        for i in range(L[0],L[1]):
+            bar += ":red_square:"
+            
+        live_logs = "Progress : " + str(L[0]) + " out of " + str(L[1]) + "\n" + bar
+        return live_logs
+    return live_logs
 
-    #concat text + bar 
-    return "Progress : " + str(L[0]) + " out of " + str(L[1]) + "\n" + bar
-
-def get_title(output):
-    #find last occurence of the line we want
-
-    index = -1
-    c = 0
-    for line in output:
-        if re.search("\[download\] Downloading playlist:", line):
-            index = c
-            break
-        c +=1
-    
-    #isolate the line
-    line = output[index]
-    
-    #generating the title bar this the informations
-    buffer = re.split("\s", line.strip())
-    title = "Downloading"
-    for i in range(3,len(buffer)):
-        title += " " + buffer[i]
-    
+def get_title(line,title):
+    if re.search("\[download\] Downloading playlist",line):
+        buffer = re.split("\s", line)
+        title = "Downloading "
+        for i in range(3,len(buffer)):
+            title += " " + buffer[i]
+        return title
     return title
-
-def download_status(process):
-    '''
-    parse the output of the process to extract usefill information and generate the title and the progress bar to send in the chat
-    return a tuple (title,live_logs) if information found 
-    If not found replace with loading
-    '''
-    #read all of the output
-    print("fetch download status")
-    output = process.stdout.readlines()
-    print("I read the lines")
-    title = get_title(output)
-    print("I found the title :",title)
-    live_logs = get_progress(output)
-    
-    return (title,live_logs)
 
 async def download_media(interaction, link):
     #run yt-dlp cmd
     return_code = None
-    process = subprocess.Popen(['yt-dlp', link],
-                           stdout=subprocess.PIPE,
-                           universal_newlines=True)
+
+    process = Popen(['yt-dlp', link], stdout=PIPE, bufsize=1, universal_newlines=True)
+    
 
     live_logs = "Progress : :red_square:"
     title = "Dowloading :musical_note:"
     status_embed = await send.edit_response(interaction, title, link, live_logs,0x6CCFF6 )
-    #status_embed = await send.send_embed(message, title , link, live_logs, 0x6CCFF6)
 
-    while is_downloading(process):
-        #await asyncio.sleep(1)
-        print("downloading")
-        title,live_logs = download_status(process)
-        print(title)
-        print(live_logs)
+    #for line in logs try update progress bar
+    for line in process.stdout:
+        if title == "Dowloading :musical_note:":
+            title = get_title(line,title)
+        live_logs = get_progress(line,live_logs)
+        
         status_embed = await send.edit_response(interaction, title, link, live_logs, 0x6CCFF6)
-    print(is_downloading(process))
+    return_code = process.poll()
 
-    return process.poll()
+    return (return_code,title)
 
 
 async def add_media(message,link):
-
-    return_code = await download_media(message,link)
-    
+    if link[0:25] == "https://music.youtube.com" and ' ' not in link:
+        return_code,title = await download_media(message,link)
+    else:
+        return "Bad link"
     if return_code is None:
-        content = "A error occured contact the administrator"
+        content = "Your link is bullshit mate!"
         color = 0xff1b1c
     elif return_code == 0:
-        content = "Media added!"
+        content = "Finished downloading " + title
         color = 0x85ff9e
     else:
         content = "Mission failed sucessfully! Some musics may not be available in France "
         color = 0xff1b1c
+    return content
