@@ -48,4 +48,9 @@ async def edit_response(interaction,title,url,description,color):
                         url=url, 
                         description=description,
                         color=color)
-    return await interaction.edit_original_response (embed = embed,content = "")
+    while True:
+            try:
+                return await interaction.edit_original_response (embed = embed,content = "")
+            except discord.errors.HTTPException(response, message):
+                print("discord.errors.HTTPException retrying ...")
+    
