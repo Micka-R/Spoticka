@@ -42,6 +42,7 @@ async def download_media(interaction, link):
 
     #for line in logs try update progress bar
     for line in process.stdout:
+        print(line)
         if title == "Dowloading :musical_note:":
             title = get_title(line,title)
         live_logs = get_progress(line,live_logs)
