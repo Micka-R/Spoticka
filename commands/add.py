@@ -46,8 +46,13 @@ async def download_media(interaction, link):
         if title == "Dowloading :musical_note:":
             title = get_title(line,title)
         live_logs = get_progress(line,live_logs)
-        
-        status_embed = await send.edit_response(interaction, title, link, live_logs, 0x6CCFF6)
+        while True:
+            try:
+                status_embed = await send.edit_response(interaction, title, link, live_logs, 0x6CCFF6)
+                break
+            except discord.errors.HTTPException(response, message):
+                print("discord.errors.HTTPException retrying ...")
+
     return_code = process.poll()
 
     return (return_code,title)
