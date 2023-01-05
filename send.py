@@ -22,7 +22,7 @@ async def reply_message(message, is_private,content):
     except Exception as e:
         print(e)
     
-async def send_embed(message,title,url,description,color):
+async def send_embed(interaction,title,url,description,color):
     '''
     send an embed in the channel of message
     '''
@@ -30,7 +30,7 @@ async def send_embed(message,title,url,description,color):
                         url=url, 
                         description=description,
                         color=color)
-    return await message.channel.send(embed=embed)
+    return await interaction.channel.send(embed=embed)
 
 
 async def edit_embed(message,title,url,description,color):
@@ -48,9 +48,8 @@ async def edit_response(interaction,title,url,description,color):
                         url=url, 
                         description=description,
                         color=color)
-    while True:
-            try:
-                return await interaction.edit_original_response (embed = embed,content = "")
-            except discord.errors.Any as e:
-                print("discord.errors.HTTPException retrying ...")
+    try:
+        return await interaction.edit_original_response (embed = embed,content = "")
+    except discord.errors.HTTPException as e:
+        print("discord.errors.HTTPException skiping")
     
